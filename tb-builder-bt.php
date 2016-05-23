@@ -1,13 +1,13 @@
 <?php
 /*
-Plugin Name: Theme Blvd Layout Builder
-Description: When using a Theme Blvd theme, this plugin gives you slick interface to build custom layouts.
+Plugin Name: Theme Blvd Layout Builder (BT)
+Description: When using a Theme Blvd theme, this plugin gives you slick interface to build custom layouts. This is a modification of the original plugin by Theme Blvd, adding more background options.
 Version: 2.0.9.5
-Author: Theme Blvd
-Author URI: http://themeblvd.com
+Author: Blue Tonic LLC
+Author URI: http://circlecf.com
 License: GPL2
 
-    Copyright 2015  Theme Blvd
+    Original: Copyright 2015  Theme Blvd
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License version 2,
@@ -200,3 +200,74 @@ function themeblvd_builder_textdomain() {
 	load_plugin_textdomain('theme-blvd-layout-builder');
 }
 add_action( 'init', 'themeblvd_builder_textdomain' );
+
+/**
+ * Add in resposive images background option.
+ * 
+ * @since msb customization
+ */
+function themeblvd_builder_options( $options, $type, $element_type ) {
+	$options['bg_type']['options']['image'] = 'Custom color + image, same on all screens';
+
+	$new_arr = array();
+	foreach($options['bg_type']['options'] as $key => $val) {
+		$new_arr[$key] = $val;
+		if ($key == 'image') {
+			$new_arr['imagelarge'] = 'Custom color + image, only on large screens';
+			$new_arr['imagetwo'] = 'Custom color + image, different on small & large screens';
+		}
+	}
+	$options['bg_type']['options'] = $new_arr;
+
+	// Add the small screen image option in the right place of the array
+	$new_arr = array();
+	foreach($options as $key => $val) {
+		$new_arr[$key] = $val;
+		if ($key == 'subgroup_end_2') {
+			$new_arr['subgroup_start_img_sm'] = array(
+				'type'		=> 'subgroup_start',
+				'class'		=> 'hide receiver receiver-imagetwo'
+			);
+			$new_arr['bg_image_sm'] = array(
+				'id'		=> 'bg_image_sm',
+				'name'		=> __('Small Background Image', 'theme-blvd-layout-builder'),
+				'desc'		=> __('Select a background image for small screens (smaller than 800px).', 'theme-blvd-layout-builder'),
+				'type'		=> 'background',
+				'color'		=> false,
+				'parallax'	=> false
+			);
+			$new_arr['subgroup_end_img_sm'] = array(
+				'type'		=> 'subgroup_end'
+			);
+		}
+	}
+	$options = $new_arr;
+
+	$options['bg_image']['name'] = __('Large Background Image', 'theme-blvd-layout-builder');
+	$options['bg_image']['desc'] = __('Select a background image for larger screens (800px or larger).', 'theme-blvd-layout-builder');
+
+	$options['text_color']['class'] = $options['text_color']['class'] . ' receiver-imagetwo receiver-imagelarge';
+	$options['bg_color']['class'] = $options['bg_color']['class'] . ' receiver-imagetwo receiver-imagelarge';
+	$options['bg_color_opacity']['class'] = $options['bg_color_opacity']['class'] . ' receiver-imagetwo receiver-imagelarge';
+	$options['subgroup_start_2']['class'] = $options['subgroup_start_2']['class'] . ' receiver-imagetwo receiver-imagelarge';
+	$options['subgroup_start_3']['class'] = $options['subgroup_start_3']['class'] . ' receiver-imagetwo receiver-imagelarge';
+
+	// print 'options type: ' . $type . "<br />\n";
+	// print 'element_type: ' . $element_type . "<br />\n";
+	// print '<pre>';
+	// print_r($options);
+	// print '<pre>' . "<br />\n";
+
+    return $options;
+}
+add_filter('themeblvd_builder_display_options', 'themeblvd_builder_options', 10, 3);
+
+/**
+ * Register extra extra large background size.
+ * 
+ * @since msb customization
+ */
+function themeblvd_builder_bigimage() {
+	add_image_size( 'tb_xx_large', 2399, 9999, false );
+}
+add_action( 'admin_init', 'themeblvd_builder_bigimage' );

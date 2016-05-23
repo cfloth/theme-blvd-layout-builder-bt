@@ -292,7 +292,18 @@ function themeblvd_builder_styles() {
 
 				$section_print = '';
 
-				$styles = themeblvd_get_display_inline_style( $section['display'], 'external' );
+				/**
+				* START custom inline style function call
+				* 
+				* @since msb customization
+				*/
+				// $styles = themeblvd_get_display_inline_style( $section['display'], 'external' );
+				$styles = themeblvd_builder_get_display_inline_style( $section['display'], 'external' );
+				/**
+				* END custom inline style function call
+				* 
+				* @since msb customization
+				*/
 
 				if ( $styles ) {
 					foreach ( $styles as $type => $params ) {
@@ -330,16 +341,42 @@ function themeblvd_builder_styles() {
 							$indent = "\t";
 						}
 
+						/**
+						* START custom media queries
+						* 
+						* @since msb customization
+						*/
 						switch ( $type ) {
-							case 'desktop' :
-								$section_print .= "@media (min-width: 992px) {\n";
+							case 'mobile_hires' :
+								// < 800px (high resolution) = 800px wide = tb_x_large
+								$section_print .= "@media (-webkit-min-device-pixel-ratio: 1.5), (min--moz-device-pixel-ratio: 1.5), (-o-min-device-pixel-ratio: 3/2), (min-resolution: 144dpi) {\n";
 								break;
 							case 'tablet' :
-								$section_print .= "@media (max-width: 991px) and (min-width: 768px) {\n";
+								// 800px - 1200px = 1200px wide = tb_x_large
+								$section_print .= "@media only screen and (min-width: 50em) {\n";
 								break;
-							case 'mobile' :
-								$section_print .= "@media (max-width: 767px) {\n";
+							case 'tablet_hires' :
+								// 800px - 1200px (high resolution) = tb_xx_large
+								$section_print .= "@media (-webkit-min-device-pixel-ratio: 1.5) and (min-width: 37.5em), (min--moz-device-pixel-ratio: 1.5) and (min-width: 37.5em), (-o-min-device-pixel-ratio: 3/2) and (min-width: 37.5em), (min-resolution: 144dpi) and (min-width: 50em) {\n";
+								break;
+							case 'desktop' :
+								// 1200px - 1800px = tb_xx_large
+								$section_print .= "@media only screen and (min-width: 75em) {\n";
+								break;
+							case 'desktop_hires' :
+								// 1200px and up (high resolution) = original
+								$section_print .= "@media (-webkit-min-device-pixel-ratio: 1.5) and (min-width: 75em), (min--moz-device-pixel-ratio: 1.5) and (min-width: 75em), (-o-min-device-pixel-ratio: 3/2) and (min-width: 75em), (min-resolution: 144dpi) and (min-width: 75em) {\n";
+								break;
+							case 'massive' :
+								// 1800px and up = original
+								$section_print .= "@media only screen and (min-width: 112.5em) {\n";
+								break;
 						}
+						/**
+						* END custom media queries
+						* 
+						* @since msb customization
+						*/
 
 						if ( strpos($section_id, 'section_') === false ) {
 							$section_id = 'section_'.$section_id;
@@ -465,4 +502,316 @@ function themeblvd_builder_styles() {
 		wp_add_inline_style( 'themeblvd-theme', $print );
 	}
 
+}
+
+/**
+ * Get the ID of an attachment from its url
+ * 
+ * @since msb customization
+*/
+function themeblvd_builder_id_from_url( $attachment_url = '' ) {
+	global $wpdb;
+	$attachment_id = false;
+ 
+	// If there is no url, return.
+	if ( '' == $attachment_url )
+		return;
+ 
+	// Get the upload directory paths
+	$upload_dir_paths = wp_upload_dir();
+ 
+	// Make sure the upload path base directory exists in the attachment URL, to verify that we're working with a media library image
+	//if ( false !== strpos( $attachment_url, $upload_dir_paths['baseurl'] ) ) {
+
+	// If this is the URL of an auto-generated thumbnail, get the URL of the original image
+	$attachment_url = preg_replace( '/-\d+x\d+(?=\.(jpg|jpeg|png|gif)$)/i', '', $attachment_url );
+
+	// Remove the upload path base directory from the attachment URL
+	//$attachment_url = str_replace( $upload_dir_paths['baseurl'] . '/', '', $attachment_url );
+	$uploads = parse_url($upload_dir_paths['baseurl']);
+
+	if (count($uploads) > 0) {
+		$attachment_url = substr($attachment_url, (strpos($attachment_url, $uploads['path']) + strlen($uploads['path']) + 1));
+ 
+		// Finally, run a custom database query to get the attachment ID from the modified attachment URL
+		$attachment_id = $wpdb->get_var( $wpdb->prepare( "SELECT wposts.ID FROM $wpdb->posts wposts, $wpdb->postmeta wpostmeta WHERE wposts.ID = wpostmeta.post_id AND wpostmeta.meta_key = '_wp_attached_file' AND wpostmeta.meta_value = '%s' AND wposts.post_type = 'attachment'", $attachment_url ) );
+ 
+	}
+ 
+	return $attachment_id;
+}
+
+/**
+ * Get inline styles for a set of display options.
+ *
+ * @since msb customization
+ *
+ * @param array $display Display options
+ * @param string $print How to return the styles, use "inline" or "external"
+ * @return string $style Inline style line to be used
+ */
+function themeblvd_builder_get_display_inline_style( $display, $print = 'inline' ) {
+	$bg_type = '';
+	$style = '';
+	$params_mobile = array();
+
+	$params = array(
+		'mobile'	=> array(),
+		'mobile_hires'	=> array(),
+		'tablet'	=> array(),
+		'tablet_hires'	=> array(),
+		'desktop'	=> array(),
+		'desktop_hires'	=> array(),
+		'massive'	=> array()
+	);
+
+	if ( empty( $display['bg_type'] ) ) {
+		$bg_type = 'none';
+	} else {
+		$bg_type = $display['bg_type'];
+	}
+
+	$parallax = false;
+
+	if ( $bg_type == 'image' && ! empty( $display['bg_image']['attachment'] ) && $display['bg_image']['attachment'] == 'parallax' ) {
+		$parallax = true;
+	}
+
+	if ( $bg_type == 'texture' && ! empty($display['apply_bg_texture_parallax']) ) {
+		$parallax = true;
+	}
+
+	if ( in_array( $bg_type, array('color', 'texture', 'image', 'imagelarge', 'imagetwo', 'video', 'none') ) ) {
+
+		if ( ( $bg_type == 'none' && empty($display['bg_content']) ) || $parallax ) {
+
+			$params_mobile['background-color'] = 'transparent';
+
+		} else if ( ! empty( $display['bg_color'] ) ) {
+
+			$bg_color = $display['bg_color'];
+
+			$params_mobile['background-color'] = $bg_color; // non-rgba, for old browsers
+
+			if ( ! empty( $display['bg_color_opacity'] ) ) {
+				$bg_color = themeblvd_get_rgb( $bg_color, $display['bg_color_opacity'] );
+			}
+
+			$params_mobile['background-color-2'] = $bg_color;
+
+		}
+
+		if ( $bg_type == 'texture' && ! $parallax ) {
+
+			$textures = themeblvd_get_textures();
+
+			if ( ! empty( $display['bg_texture'] ) && ! empty( $textures[$display['bg_texture']] ) ) {
+
+				$texture = $textures[$display['bg_texture']];
+
+				$params_mobile['background-image'] = sprintf('url(%s)', esc_url($texture['url']));
+				$params_mobile['background-position'] = $texture['position'];
+				$params_mobile['background-repeat'] = $texture['repeat'];
+				$params_mobile['background-size'] = $texture['size'];
+
+			}
+
+		} else if ( ($bg_type == 'image' || $bg_type == 'imagelarge' || $bg_type == 'imagetwo') && ! $parallax ) {
+			$repeat = false;
+
+			if ( ! empty( $display['bg_image']['image'] ) ) {
+				/*
+				*
+				* NOTE: small screen = 800px or less = mobile
+				*
+				*/
+
+				$attachment_id = themeblvd_builder_id_from_url($display['bg_image']['image']);
+				$img_meta = wp_get_attachment_metadata($attachment_id);
+
+				// print '<pre>';
+				// print_r($img_meta);
+				// print '<pre>' . "<br />\n";
+
+				// load the sizes that are added by jumpstart by default
+				$img_tb_large = wp_get_attachment_image_src( $attachment_id, 'tb_large', false );
+				$img_tb_x_large = wp_get_attachment_image_src( $attachment_id, 'tb_x_large', false );
+
+				// Now load the sizes for the smaller images
+				if ($bg_type == 'imagetwo' && ! empty( $display['bg_image_sm']['image'] ) ) {
+					$attachment_sm_id = themeblvd_builder_id_from_url($display['bg_image_sm']['image']);
+
+					// load the sizes that are added by jumpstart by default
+					$img_sm_tb_large = wp_get_attachment_image_src( $attachment_sm_id, 'tb_large', false );
+					$img_sm_tb_x_large = wp_get_attachment_image_src( $attachment_sm_id, 'tb_x_large', false );
+				} elseif (! empty( $display['bg_image']['image'] )) {
+					$img_sm_tb_large = $img_tb_large;
+					$img_sm_tb_x_large = $img_tb_x_large;
+				}
+
+				// load the small screen setting
+				if ($bg_type == 'image' || $bg_type == 'imagetwo') {
+					$params['mobile']['background-image'] = sprintf('url(%s)', esc_url($img_sm_tb_large[0]));
+					$params['mobile_hires']['background-image'] = sprintf('url(%s)', esc_url($img_sm_tb_x_large[0]));
+				}
+
+				$params['tablet']['background-image'] = sprintf('url(%s)', esc_url($img_tb_x_large[0]));
+
+				// tb_xx_large or original
+				if (isset($img_meta['sizes']['tb_xx_large'])) {
+					$img_tb_xx_large = wp_get_attachment_image_src( $attachment_id, 'tb_xx_large', false );
+
+					$params['tablet_hires']['background-image'] = sprintf('url(%s)', esc_url($img_tb_xx_large[0]));
+					$params['desktop']['background-image'] = sprintf('url(%s)', esc_url($img_tb_xx_large[0]));
+
+					//use original image for huge backgrounds
+					$params['desktop_hires']['background-image'] = sprintf('url(%s)', esc_url($display['bg_image']['image']));
+					$params['massive']['background-image'] = sprintf('url(%s)', esc_url($display['bg_image']['image']));
+				}else{
+					// extra extra large thumbnail doesn't exist
+					//use original image for larger sizes
+					$params['tablet_hires']['background-image'] = sprintf('url(%s)', esc_url($display['bg_image']['image']));
+					$params['desktop']['background-image'] = sprintf('url(%s)', esc_url($display['bg_image']['image']));
+					$params['desktop_hires']['background-image'] = sprintf('url(%s)', esc_url($display['bg_image']['image']));
+					$params['massive']['background-image'] = sprintf('url(%s)', esc_url($display['bg_image']['image']));
+				}
+
+			}
+
+			if ( ! empty( $display['bg_image']['repeat'] ) ) {
+
+				if ( $display['bg_image']['repeat'] != 'no-repeat' ) {
+					$repeat = true;
+				}
+
+				$params['mobile']['background-repeat'] = $display['bg_image']['repeat'];
+			}
+
+			if ( ! $repeat && ! empty( $display['bg_image']['size'] ) ) {
+				$params['mobile']['background-size'] = $display['bg_image']['size'];
+			}
+
+			if ( ! wp_is_mobile() && ! empty( $display['bg_image']['attachment'] ) ) {
+				$params['mobile']['background-attachment'] = $display['bg_image']['attachment'];
+			}
+
+			if ( ! empty( $display['bg_image']['position'] ) ) {
+				$params['mobile']['background-position'] = $display['bg_image']['position'];
+			}
+
+		} else if ( $bg_type == 'video' ) {
+
+			if ( ! empty( $display['bg_video']['fallback'] ) ) {
+				$params_mobile['background-image'] = sprintf('url(%s)', esc_url($display['bg_video']['fallback']));
+			}
+
+		}
+
+	}
+
+	if ( ! empty( $display['apply_border_top'] ) ) {
+
+		$params_mobile['border-top-style'] = 'solid';
+
+		if ( ! empty( $display['border_top_width'] ) ) {
+			$params_mobile['border-top-width'] = $display['border_top_width'];
+		}
+
+		if ( ! empty( $display['border_top_color'] ) ) {
+			$params_mobile['border-top-color'] = $display['border_top_color'];
+		}
+
+	}
+
+	if ( ! empty( $display['apply_border_bottom'] ) ) {
+
+		$params_mobile['border-bottom-style'] = 'solid';
+
+		if ( ! empty( $display['border_bottom_width'] ) ) {
+			$params_mobile['border-bottom-width'] = $display['border_bottom_width'];
+		}
+
+		if ( ! empty( $display['border_bottom_color'] ) ) {
+			$params_mobile['border-bottom-color'] = $display['border_bottom_color'];
+		}
+
+	}
+
+	if ( ! empty( $display['apply_padding'] ) ) {
+
+		if ( ! empty( $display['padding_top'] ) ) {
+			$params_mobile['padding-top'] = $display['padding_top'];
+		}
+
+		if ( ! empty( $display['padding_bottom'] ) ) {
+			$params_mobile['padding-bottom'] = $display['padding_bottom'];
+		}
+
+		if ( ! empty( $display['padding_right'] ) ) {
+
+			$params_mobile['padding-right'] = $display['padding_right'];
+
+			if ( ! empty($display['apply_popout']) ) {
+				$params_mobile['padding-right'] .= ' !important'; // override popout
+			}
+		}
+
+		if ( ! empty( $display['padding_left'] ) ) {
+
+			$params_mobile['padding-left'] = $display['padding_left'];
+
+			if ( ! empty($display['apply_popout']) ) {
+				$params_mobile['padding-left'] .= ' !important'; // override popout
+			}
+		}
+
+	}
+
+	if ( $print == 'external' ) {
+
+		foreach ( $params as $key => $value ) {
+
+			if ( $key == 'mobile' ) {
+				continue;
+			}
+
+			if ( ! empty( $display['apply_padding_'.$key] ) ) {
+
+				if ( ! empty( $display['padding_top_'.$key] ) ) {
+					$params[$key]['padding-top'] = $display['padding_top_'.$key];
+				}
+
+				if ( ! empty( $display['padding_bottom_'.$key] ) ) {
+					$params[$key]['padding-bottom'] = $display['padding_bottom_'.$key];
+				}
+
+				if ( ! empty( $display['padding_right_'.$key] ) ) {
+					$params[$key]['padding-right'] = $display['padding_right_'.$key];
+				}
+
+				if ( ! empty( $display['padding_left_'.$key] ) ) {
+					$params[$key]['padding-left'] = $display['padding_left_'.$key];
+				}
+
+			}
+
+		}
+
+	}
+
+	$params['mobile'] = array_merge($params['mobile'],$params_mobile);
+
+	$params = apply_filters( 'themeblvd_display_inline_style', $params, $display );
+
+	if ( $print == 'inline' ) {
+
+		foreach ( $params as $key => $value ) {
+			$key = str_replace('-2', '', $key);
+			$style .= sprintf( '%s: %s; ', $key, $value );
+		}
+
+		return trim( esc_attr($style) );
+	}
+
+	return $params;
 }
