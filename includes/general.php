@@ -90,7 +90,7 @@ function themeblvd_builder_layout( $context ) {
 
 			if ( $display ) {
 
-				if ( in_array($display['bg_type'], array('image', 'slideshow', 'video')) && ! empty($display['apply_bg_shade']) ) {
+				if ( in_array($display['bg_type'], array('image', 'imagetwo', 'imagelarge', 'slideshow', 'video')) && ! empty($display['apply_bg_shade']) ) {
 					printf( '<div class="bg-shade" style="background-color: %s;"></div>', esc_attr( themeblvd_get_rgb( $display['bg_shade_color'], $display['bg_shade_opacity'] ) ) );
 				}
 
@@ -337,7 +337,7 @@ function themeblvd_builder_styles() {
 
 						$indent = '';
 
-						if ( $type != 'general' ) {
+						if ( $type != 'mobile' ) {
 							$indent = "\t";
 						}
 
@@ -428,7 +428,7 @@ function themeblvd_builder_styles() {
 							$section_print .= $indent."}\n";
 						}
 
-						if ( $type != 'general' ) {
+						if ( $type != 'mobile' ) {
 							$section_print .= "}\n";
 						}
 

@@ -263,6 +263,44 @@ function themeblvd_builder_options( $options, $type, $element_type ) {
 add_filter('themeblvd_builder_display_options', 'themeblvd_builder_options', 10, 3);
 
 /**
+ * Add bg-shade option to imagetwo & imagelarge.
+ * 
+ * @since msb customization
+ */
+function themeblvd_builder_display_class( $class, $display ) {
+	if ( ! empty( $display['bg_type'] ) ) {
+
+		$bg_type = $display['bg_type'];
+
+		if ( $bg_type != 'none' ) {
+
+			if ( ( $bg_type == 'imagetwo' || $bg_type == 'imagelarge' ) && ! empty( $display['apply_bg_shade'] ) ) {
+				$class[] = 'has-bg-shade';
+			}
+
+			if ( $bg_type == 'imagetwo' || $bg_type == 'imagelarge' ) {
+				if ( ! empty( $display['text_color'] ) && $display['text_color'] != 'none' ) {
+					$class[] = 'text-'.$display['text_color'];
+				}
+
+				if ( ! empty( $display['bg_image']['attachment'] ) && $display['bg_image']['attachment'] == 'parallax' ) {
+					$class[] = 'tb-parallax';
+				}
+
+				if ( ! empty( $display['bg_image']['repeat'] ) ) {
+					$class[] = $display['bg_image']['repeat'];
+				}
+			}
+
+		}
+
+	}
+
+	return $class;
+}
+add_filter('themeblvd_display_class', 'themeblvd_builder_display_class', 10, 2);
+
+/**
  * Register extra extra large background size.
  * 
  * @since msb customization
